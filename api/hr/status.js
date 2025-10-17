@@ -1,41 +1,51 @@
 export const config = { runtime: 'edge' };
 
 export default async (req) => {
+  // URL Power Automate из переменных окружения
   const FLOW_URL = process.env.FLOW_URL;
-  const SECRET   = process.env.SECRET_TOKEN;
 
-  const token = req.headers.get('x-auth');
-  if (!token || token !== SECRET) return new Response('forbidden', { status: 403 });
-
+  // Обработка CORS-запросов (для браузеров и внешних клиентов)
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
       headers: {
         'access-control-allow-origin': '*',
-        'access-control-allow-headers': 'content-type,x-auth',
+        'access-control-allow-headers': 'content-type',
         'access-control-allow-methods': 'GET,POST,OPTIONS',
       },
     });
   }
 
-  let body; const ct = req.headers.get('content-type') || '';
+  // Определяем тип запроса
+  let body;
+  const ct = req.headers.get('content-type') || '';
+
   if (req.method === 'GET') {
+    // Если приходит GET — преобразуем параметры в JSON и отправляем как POST
     const q = Object.fromEntries(new URL(req.url).searchParams);
     body = JSON.stringify(q);
   } else if (req.method === 'POST') {
+    // Если приходит POST — передаём тело запроса как есть
     body = await req.text();
   } else {
+    // Если метод не поддерживается
     return new Response('method not allowed', { status: 405 });
   }
 
+  // Отправляем POST-запрос в Power Automate Flow
   const res = await fetch(FLOW_URL, {
     method: 'POST',
-    headers: { 'content-type': ct.includes('json') ? 'application/json' : 'application/octet-stream' },
-    body
+    headers: {
+      'content-type': ct.includes('json')
+        ? 'application/json'
+        : 'application/octet-stream',
+    },
+    body,
   });
 
+  // Возвращаем ответ обратно клиенту
   return new Response(await res.text(), {
     status: res.status,
-    headers: { 'access-control-allow-origin': '*' }
+    headers: { 'access-control-allow-origin': '*' },
   });
 };
