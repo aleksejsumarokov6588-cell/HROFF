@@ -21,14 +21,15 @@ export default async (req) => {
   const ct = req.headers.get('content-type') || '';
 
   if (req.method === 'GET') {
-    // Если приходит GET — преобразуем параметры в JSON и отправляем как POST
-    const q = Object.fromEntries(new URL(req.url).searchParams);
-    body = JSON.stringify(q);
+    // Корректная обработка относительного URL (Vercel edge может возвращать только путь)
+    const url = req.url.startsWith('http')
+      ? req.url
+      : `https://${req.headers.get('host')}${req.url}`;
+    const q = Object.fromEntries(new URL(url).searchParams);
+    body = JSON.stringify(q); // GET → JSON
   } else if (req.method === 'POST') {
-    // Если приходит POST — передаём тело запроса как есть
-    body = await req.text();
+    body = await req.text();  // POST → как есть
   } else {
-    // Если метод не поддерживается
     return new Response('method not allowed', { status: 405 });
   }
 
